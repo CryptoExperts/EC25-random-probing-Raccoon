@@ -797,8 +797,12 @@ def rpc_ai_keygen_block1(n,t,tri,pgaddp,pgcopy):
 def rpc_ai_keygen_block2(n,t,tri,paddnoiseto,pgdecode):
     p_rpc_ai_keygen_block2 = 0
     filtered_tin = [(i, j) for i, j in itertools.product(range(n + 1), repeat=2) if i + j > tri]
+    all_tin = [(i, j) for i, j in itertools.product(range(n + 1), repeat=2)]
     for tm in range(n+1):
         for tin in filtered_tin:
+            for tin_block2 in range(0,t+1):
+                p_rpc_ai_keygen_block2 += paddnoiseto[tin_block2,tin[0],tin[1],tm] * pgdecode[tm]
+        for tin in all_tin:
             for tin_block2 in range(t+1,n+1):
                 p_rpc_ai_keygen_block2 += paddnoiseto[tin_block2,tin[0],tin[1],tm] * pgdecode[tm]
     return p_rpc_ai_keygen_block2
@@ -841,31 +845,23 @@ def rpc_keygen(n,t,tri,p,gamma1,gamma2,gamma3):
     p_keygen = p_rpc_ai_keygen_block1+p_rpc_gcmatmult+p_rpc_ai_keygen_block2
     return p_keygen
 
-## Signature 128-16 
+
 def rpc_ai_sign_block1(n,t,tri,pgaddp,pgcopy,pgcpolymult,pgadd,pgdecode,raccoon_l,raccoon_n):
-    p_rpc_ai_sign_sub_block1 = np.zeros((n+1,n+1,n+1))
-    p_rpc_ai_sign_sub_block2 = np.zeros((n+1,n+1))
-    p_rpc_ai_sign_block1 = 0
-    filtered_tin = [(i, j) for i, j in itertools.product(range(n + 1), repeat=2) if i + j > tri]
-    # Sub-block 1
-    for tin in filtered_tin:
-        for tm1 in range(0,n+1):
-            for tm2 in range(0,n+1):
-                p_rpc_ai_sign_sub_block1[tin[0],tin[1],tm2] += pgaddp[tin[0],tin[1],tm1] * pgcopy[tm1,tm2,t]
+
+    # sub-block1
+    rpc_ai_sign_sub_block1_adv  = rpc_ai_keygen_block1(n,t,tri,pgaddp,pgcopy)
+
     # Sub-block 2
-    for tin_s in range(t+1,n+1):
-        for tm1 in range(0,n+1):
-            for tm2 in range(0,n+1):
-                for tm3 in range(0,n+1):
-                    p_rpc_ai_sign_sub_block2[tin_s,tm1] += pgadd[tm2,tm1,tm3]*pgdecode[tm3]
+    adv_sub_block2 = 0
+    for tm1 in range(t+1,n+1):
+        for tm2 in range(t+1,n+1):
+            for tm3 in range(0,n+1):
+                adv_sub_block2 += pgadd[tm2,tm1,tm3]*pgdecode[tm3]
 
-    for tin in filtered_tin:
-        for tin_s in range(t+1,n+1):
-            for tm in range(0,n+1):
-                p_rpc_ai_sign_block1 += p_rpc_ai_sign_sub_block1[tin[0],tin[1],tm]*p_rpc_ai_sign_sub_block2[tin_s,tm]
-
-    p_rpc_ai_sign_block1 = p_rpc_ai_sign_block1*raccoon_l*raccoon_n+pgcpolymult*raccoon_l
+    adv = rpc_ai_sign_sub_block1_adv + adv_sub_block2
+    p_rpc_ai_sign_block1 = adv*raccoon_l*raccoon_n + pgcpolymult*raccoon_l
     return p_rpc_ai_sign_block1
+
 
 def rpc_sign(n,t,tri,p,gamma1,gamma2,gamma3):
     raccoon_l = 4
@@ -904,7 +900,7 @@ def rpc_sign(n,t,tri,p,gamma1,gamma2,gamma3):
     p_rpc_gcmatmult = p_rpc_gcopytree*raccoon_l * raccoon_n + p_rpc_gpolymult*raccoon_k *raccoon_l + p_rpc_gsumtree*raccoon_k*raccoon_n
     print("threshold-RPC advantage Gcmmult: 2^",math.log2(p_rpc_gcmatmult))    
 
-    p_keygen = p_rpc_ai_sign_block1+p_rpc_gcmatmult+p_rpc_ai_sign_block2
+    p_keygen = p_rpc_ai_sign_block1 + p_rpc_gcmatmult + p_rpc_ai_sign_block2
     return p_keygen
 
 ## -------------------------------------------------------------
@@ -1151,9 +1147,13 @@ def threshold_rpc_raccoon_keygen():
     t=8
     tri=15
     p_values = [2**-24,2**-20,2**-16,2**-12]
-    gamma_values_128 = [(64,25,125),(64,30,135)]
-    gamma_values_80 = [(42,15,80),(42,15,81),(42,20,85)]
-    gamma_values_64 = [(35,10,65),(35,10,70),(35,15,70),(35,20,115)]
+    # Old values
+    # gamma_values_128 = [(64,25,125),(64,30,135)]
+    # gamma_values_80 = [(42,15,80),(42,15,81),(42,20,85)]
+    # gamma_values_64 = [(35,10,65),(35,10,70),(35,15,70),(35,20,115)]
+    gamma_values_128 = [(64,49,125),(66,57,135)]
+    gamma_values_80 = [(42,24,80),(42,28,81),(42,34,85)]
+    gamma_values_64 = [(35,17,65),(35,20,70),(35,25,70),(37,31,115)]
 
     # Security level <= 2^-128
     print("\n\n \t Security Level <= 2^-128 \n")
@@ -1187,9 +1187,14 @@ def threshold_rpc_raccoon_sign():
     t=8
     tri=15
     p_values = [2**-24,2**-20,2**-16,2**-12]
-    gamma_values_128 = [(120,30,125),(125,65,130)]
-    gamma_values_80 = [(75,20,80),(80,20,80),(85,25,85)]
-    gamma_values_64 = [(60,15,65),(65,15,70),(70,20,70),(75,25,85)]
+    # Old values
+    # gamma_values_128 = [(120,30,125),(125,65,130)]
+    # gamma_values_80 = [(75,20,80),(80,20,80),(85,25,85)]
+    # gamma_values_64 = [(60,15,65),(65,15,70),(70,20,70),(75,25,85)]
+    gamma_values_128 = [(120,49,125),(125,60,130)]
+    gamma_values_80 = [(75,24,80),(82,28,80),(85,35,85)]
+    gamma_values_64 = [(60,17,65),(65,20,70),(70,25,70),(75,32,115)]
+
 
     # Security level <= 2^-128
     print("\n\n \t Security Level <= 2^-128 \n")
@@ -1225,10 +1230,14 @@ def complexities_theorems():
     raccoon_l=4
     raccoon_k=5
     raccoon_n=512
+    # Old values
+    # kg_gamma_values_128 = [(64,25,125),(64,30,135)]
+    # kg_gamma_values_80 = [(42,15,80),(42,15,81),(42,20,85)]
+    # kg_gamma_values_64 = [(35,10,65),(35,10,70),(35,15,70),(35,20,115)]
+    kg_gamma_values_128 = [(64,49,125),(66,57,135)]
+    kg_gamma_values_80 = [(42,24,80),(42,28,81),(42,34,85)]
+    kg_gamma_values_64 = [(35,17,65),(35,20,70),(35,25,70),(37,31,115)]
 
-    kg_gamma_values_128 = [(64,25,125),(64,30,135)]
-    kg_gamma_values_80 = [(42,15,80),(42,15,81),(42,20,85)]
-    kg_gamma_values_64 = [(35,10,65),(35,10,70),(35,15,70),(35,20,115)]
     comp = complexity_keygeneration(n,nb_r,raccoon_l,raccoon_k,raccoon_n,*kg_gamma_values_128[0])
     print("Complexity KG (security 128 bits) - p = 2^-24 : ",comp)
     comp = complexity_keygeneration(n,nb_r,raccoon_l,raccoon_k,raccoon_n,*kg_gamma_values_128[1])
@@ -1247,10 +1256,14 @@ def complexities_theorems():
     print("Complexity KG (security 64 bits) - p = 2^-16 : ",comp)
     comp = complexity_keygeneration(n,nb_r,raccoon_l,raccoon_k,raccoon_n,*kg_gamma_values_64[3])
     print("Complexity KG (security 64 bits) - p = 2^-12 : ",comp)
+    # Old values
+    # sign_gamma_values_128 = [(120,30,125),(125,65,130)]
+    # sign_gamma_values_80 = [(75,20,80),(80,20,80),(85,25,85)]
+    # sign_gamma_values_64 = [(60,15,65),(65,15,70),(70,20,70),(75,25,85)]
+    sign_gamma_values_128 = [(120,49,125),(125,60,130)]
+    sign_gamma_values_80 = [(75,24,80),(82,28,80),(85,35,85)]
+    sign_gamma_values_64 = [(60,17,65),(65,20,70),(70,25,70),(75,32,115)]
 
-    sign_gamma_values_128 = [(120,30,125),(125,65,130)]
-    sign_gamma_values_80 = [(75,20,80),(80,20,80),(85,25,85)]
-    sign_gamma_values_64 = [(60,15,65),(65,15,70),(70,20,70),(75,25,85)]
     comp = complexity_signature(n,nb_r,raccoon_l,raccoon_k,raccoon_n,*sign_gamma_values_128[0])
     print("Complexity Sign (security 128 bits) - p = 2^-24 : ",comp)
     comp = complexity_signature(n,nb_r,raccoon_l,raccoon_k,raccoon_n,*sign_gamma_values_128[1])
@@ -1269,4 +1282,3 @@ def complexities_theorems():
     print("Complexity Sign (security 64 bits) - p = 2^-16 : ",comp)
     comp = complexity_signature(n,nb_r,raccoon_l,raccoon_k,raccoon_n,*sign_gamma_values_64[3])
     print("Complexity Sign (security 64 bits) - p = 2^-12 : ",comp)
-
